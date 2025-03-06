@@ -357,11 +357,11 @@
         function renderKitchenPage() {
             const kitchenOrderList = document.getElementById('kitchen-order-list');
             kitchenOrderList.innerHTML = '';
-
+            
             state.kitchenOrders.forEach((order, index) => {
                 const orderCard = document.createElement('div');
                 orderCard.className = 'bg-white rounded-lg shadow-md p-4 mb-4';
-
+                
                 // 주문 헤더 (주문번호, 테이블, 시간)
                 const formattedTime = new Date(order.timestamp).toLocaleString('ko-KR', {
                     month: 'short',
@@ -370,7 +370,7 @@
                     minute: '2-digit', 
                     hour12: false
                 });
-
+                
                 const table = state.tables.find(t => t.number === order.tableNumber);
                 const tableStatusText = {
                     'empty': '비어있음',
@@ -378,7 +378,7 @@
                     'served': '식사 중',
                     'payed': '결제 완료'
                 }[table.status];
-
+                
                 const orderHeader = document.createElement('div');
                 orderHeader.className = 'flex justify-between items-center border-b pb-2 mb-2';
                 orderHeader.innerHTML = `
@@ -390,25 +390,62 @@
                     <span class="text-sm text-gray-500">${formattedTime}</span>
                 `;
                 orderCard.appendChild(orderHeader);
-
+                
                 // 메뉴 리스트
                 const menuList = document.createElement('div');
                 menuList.className = 'space-y-2';
-
-                order.orders.forEach(menuItem => {
+                
+                order.orders.forEach((menuItem, menuIndex) => {
+                    // 메뉴 아이템에 조리 상태 속성이 없으면 기본값 설정
+                    if (!menuItem.cookingStatus) {
+                        menuItem.cookingStatus = 'cooking'; // 기본값: 조리 중
+                    }
+                    
                     const menuItemDiv = document.createElement('div');
-                    menuItemDiv.className = 'flex justify-between items-center';
-                    menuItemDiv.innerHTML = `
+                    menuItemDiv.className = 'flex justify-between items-center py-2';
+                    
+                    // 메뉴 이름과 수량
+                    const menuInfo = document.createElement('div');
+                    menuInfo.className = 'flex-1';
+                    menuInfo.innerHTML = `
                         <span>${menuItem.name}</span>
                         <span class="text-gray-600 ml-2 text-sm">x ${menuItem.quantity}</span>
                     `;
+                    
+                    // 조리 상태 버튼
+                    const statusButton = document.createElement('button');
+                    statusButton.className = getCookingStatusButtonClass(menuItem.cookingStatus);
+                    statusButton.textContent = getCookingStatusText(menuItem.cookingStatus);
+                    statusButton.dataset.orderIndex = index;
+                    statusButton.dataset.menuIndex = menuIndex;
+                    
+                    // 버튼 클릭 이벤트 - 조리 상태 변경
+                    statusButton.addEventListener('click', function() {
+                        toggleCookingStatus(index, menuIndex);
+                    });
+                    
+                    menuItemDiv.appendChild(menuInfo);
+                    menuItemDiv.appendChild(statusButton);
+                    
                     menuList.appendChild(menuItemDiv);
                 });
-
+                
                 orderCard.appendChild(menuList);
-
                 kitchenOrderList.appendChild(orderCard);
             });
+        }
+
+        // 조리 상태 텍스트 반환 함수
+        function getCookingStatusText(status) {
+            return status === 'cooking' ? '조리 중' : '조리 완료';
+        }
+
+        // 조리 상태에 따른 버튼 클래스 설정 함수
+        function getCookingStatusButtonClass(status) {
+            const baseClass = 'px-3 py-1 rounded text-white text-sm font-medium ml-2';
+            return status === 'cooking' 
+                ? `${baseClass} bg-yellow-500 hover:bg-yellow-600`
+                : `${baseClass} bg-green-500 hover:bg-green-600`;
         }
 
         // 테이블 상태에 따른 색상 지정 함수
@@ -420,6 +457,25 @@
                 'payed': 'text-blue-600'
             };
             return colors[status] || 'text-gray-500';
+        }
+
+        // 조리 상태 토글 함수
+        function toggleCookingStatus(orderIndex, menuIndex) {
+            const menuItem = state.kitchenOrders[orderIndex].orders[menuIndex];
+            
+            // 조리 중 -> 조리 완료 상태로 변경
+            if (menuItem.cookingStatus === 'cooking') {
+                menuItem.cookingStatus = 'completed';
+            } else {
+                // 조리 완료 -> 조리 중 상태로 변경 (필요한 경우)
+                menuItem.cookingStatus = 'cooking';
+            }
+            
+            // 화면 갱신
+            renderKitchenPage();
+            
+            // 상태 변경을 서버에 저장하는 코드가 필요하다면 여기에 추가
+            // saveOrderStatus(orderIndex, menuIndex, menuItem.cookingStatus);
         }
 
         // 초기 페이지 로드
